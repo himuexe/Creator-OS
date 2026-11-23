@@ -1,0 +1,6 @@
+\getenv app_password APP_DB_PASSWORD
+CREATE ROLE creatoros LOGIN PASSWORD :'app_password';
+REVOKE CONNECT ON DATABASE creatoros FROM PUBLIC;
+GRANT CONNECT ON DATABASE creatoros TO creatoros;
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+GRANT USAGE, CREATE ON SCHEMA public TO creatoros;

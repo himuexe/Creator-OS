@@ -1,0 +1,2 @@
+# CPU inference is installed in the worker environment only.
+faster-whisper==1.2.1

@@ -1,0 +1,61 @@
+name: creatoros
+
+services:
+  db:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_DB: creatoros
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Generate a local .env using scripts/init-env.py}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Generate a local .env using scripts/init-env.py}
+    volumes:
+      - database:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/10-creatoros.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d creatoros"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+
+  redis:
+    image: redis:7.2-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - broker:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://creatoros:${APP_DB_PASSWORD}@db:5432/creatoros
+      STORAGE_ROOT: /app/storage
+      MAX_VIDEO_BYTES: ${MAX_VIDEO_BYTES:-536870912}
+      MAX_SCRIPT_BYTES: ${MAX_SCRIPT_BYTES:-1048576}
+    volumes:
+      - sources:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3).close()"]
+      interval: 5s
+      timeout: 4s
+      start_period: 10s
+      retries: 15
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "127.0.0.1:${STUDIO_PORT:-5173}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  database:
+  broker:
+  sources:
